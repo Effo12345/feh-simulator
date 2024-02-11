@@ -2,12 +2,12 @@
 <html lang="en" dir="ltr">
   <head>
     <meta charset="utf-8">
-    <title>skillsPlanner</title>
+    <title>FEH Simulator</title>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 	<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.13.1/jquery-ui.min.js"></script>
   </head>
 <body style="overflow: hidden; margin: 0; padding: 0;">
-<canvas id="canvas" width="500" height="500" style="
+<canvas id="canvas" width="428" height="856" style="
   margin: 0;
   position: absolute;
   top: 50%;
@@ -54,7 +54,8 @@ const robotXYHTML = document.getElementById("robotXY");
 const moveDis = document.getElementById("moveDis");
 
 
-var testingVal = 70.86614;
+var wScale = 18.235;
+var hScale = 36.0035;
 
 
 //*******************
@@ -66,7 +67,7 @@ var testingVal = 70.86614;
 //*******************
 //*******************
 //Pure pursuit stuffs
-var spacing = 6;
+var spacing = 2;
 var weight_smooth = 0.865;
 var weight_data = 1 - weight_smooth;
 var tolerance = 0.001;
@@ -125,19 +126,19 @@ function output() {
 }
 
 function canvasW(w) {
-	return w / (testingVal/(canvas.width/2));
+	return w / (wScale/(canvas.width/2));
 }
 
 function canvasH(h) {
-	return h / (testingVal/(canvas.width/2));
+	return h / (hScale/(canvas.height/2));
 }
 
 function fieldW(w) {
-	return w * (testingVal/(canvas.width/2));
+	return w * (wScale/(canvas.width/2));
 }
 
 function fieldH(h) {
-	return h * (testingVal/(canvas.width/2));
+	return h * (hScale/(canvas.height/2));
 }
 
 function redraw(x, y){
@@ -238,8 +239,8 @@ canvas.addEventListener('mousedown', function(e){
 		var mX = e.x - rect.left - canvas.width/2;
 		var mY = e.y - rect.top - canvas.height/2;
 		//console.log(mX + ", " + mY);
-		var scaledX = mX * (testingVal/(canvas.width/2));
-		var scaledY = -1 * mY * (testingVal/( canvas.height/2));
+		var scaledX = mX * (wScale/(canvas.width/2));
+		var scaledY = -1 * mY * (hScale/( canvas.height/2));
 
 		distanceFromRobotX = (e.x - rect.left - canvas.width/2) - (waypoints[i].x - robotDim/2);
 		distanceFromRobotY = (e.y - rect.top - canvas.height/2) - (waypoints[i].y + robotDim/2);

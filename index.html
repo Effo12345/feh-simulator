@@ -5,6 +5,7 @@
     <title>FEH Simulator</title>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 	<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.13.1/jquery-ui.min.js"></script>
+	<script src="https://d3js.org/d3.v4.min.js"></script>
   </head>
 <body style="overflow: hidden; margin: 0; padding: 0;">
 <canvas id="canvas" width="428" height="856" style="
@@ -66,11 +67,14 @@ var hScale = 36.0035;
 //*******************
 //*******************
 //*******************
-//Pure pursuit stuffs
+// Path generating
 var spacing = 2;
 var weight_smooth = 0.865;
 var weight_data = 1 - weight_smooth;
 var tolerance = 0.001;
+var maxVelocity = 100;
+var maxAcceleration = 50;
+var k = 4.0;
 
 
 
@@ -88,6 +92,8 @@ var robotPos = new vector2();
   
 var waypoints = [robotPos];
 var path = [];
+var velocities = []; // Indexed same as path
+var curvatures = [];
   
 function newWaypoint() {
 	ctx.beginPath();
@@ -141,40 +147,74 @@ function fieldH(h) {
 	return h * (hScale/(canvas.height/2));
 }
 
-function redraw(x, y){
-  //draw starting picture
-  ctx.drawImage(fieldImg, 0, 0, fieldImg.width, fieldImg.height, 0, 0, canvas.width, canvas.height);
+// Lerp between colors
+function getRgb(color) {
+  let [r, g, b] = color.replace('rgb(', '')
+    .replace(')', '')
+    .split(',')
+    .map(str => Number(str));;
+  return {
+    r,
+    g,
+    b
+  }
+}
 
-  //draw axis
-  ctx.fillStyle = "white";
-  ctx.fillRect(canvas.width/2 - 1, 0, 3, canvas.height);
-  ctx.fillRect(0, canvas.height/2 - 1,  canvas.width, 3);
-  
-  
-  //Path computing
-  for(let i = 0; i < waypoints.length - 1; i++) {
-	var vector = new vector2();
-	
-	vector.x = waypoints[i+1].x - waypoints[i].x;
-	vector.y = waypoints[i+1].y - waypoints[i].y;
-	
-	vector.x = fieldW(vector.x);
-	vector.y = fieldH(vector.y);
-	
-	var magnitude = Math.sqrt(Math.pow(vector.x, 2) + Math.pow(vector.y, 2));
-	
-	var num_points_that_fit = Math.ceil(magnitude / spacing);
-	
-	vector.x = (vector.x / magnitude) * spacing;
-	vector.y = (vector.y / magnitude) * spacing;
-	
-	for(let j = 0; j < num_points_that_fit; j++) {
-		var tmp_vector = new vector2();
-		tmp_vector.x = fieldW(waypoints[i].x) + (vector.x * j);
-		tmp_vector.y = fieldH(waypoints[i].y) + (vector.y * j);
+function colorInterpolate(colorA, colorB, intval) {
+  const rgbA = getRgb(colorA),
+    rgbB = getRgb(colorB);
+  const colorVal = (prop) =>
+    Math.round(rgbA[prop] * (1 - intval) + rgbB[prop] * intval);
+  return {
+    r: colorVal('r'),
+    g: colorVal('g'),
+    b: colorVal('b'),
+  }
+}
+
+// Compute distance between points
+function distanceTo(p1, p2) {
+	return Math.sqrt(Math.pow((p1.x - p2.x), 2) + Math.pow((p1.y - p2.y), 2));
+}
+
+// Draw a circular point of radius robotDim - 4
+function drawPoint(p, vel) {
+	// Lerp between red (slow) to green (fast) based on percentage of max vel
+	var colorInterpolator = d3.interpolateRgb("red", "green");
+	var color = colorInterpolator(vel / 50);
+	console.log(color);
+
+	ctx.fillStyle = color;
+	ctx.beginPath();
+	ctx.arc(canvasW(p.x) + canvas.width/2, canvasH(p.y) + canvas.height/2, robotDim - 4, 0, 2 * Math.PI, false);
+	ctx.fill();
+}
+
+function generatePath() {
+	//Path computing
+	for(let i = 0; i < waypoints.length - 1; i++) {
+		var vector = new vector2();
 		
-		path.push(tmp_vector);
-	}
+		vector.x = waypoints[i+1].x - waypoints[i].x;
+		vector.y = waypoints[i+1].y - waypoints[i].y;
+		
+		vector.x = fieldW(vector.x);
+		vector.y = fieldH(vector.y);
+		
+		var magnitude = Math.sqrt(Math.pow(vector.x, 2) + Math.pow(vector.y, 2));
+		
+		var num_points_that_fit = Math.ceil(magnitude / spacing);
+		
+		vector.x = (vector.x / magnitude) * spacing;
+		vector.y = (vector.y / magnitude) * spacing;
+		
+		for(let j = 0; j < num_points_that_fit; j++) {
+			var tmp_vector = new vector2();
+			tmp_vector.x = fieldW(waypoints[i].x) + (vector.x * j);
+			tmp_vector.y = fieldH(waypoints[i].y) + (vector.y * j);
+			
+			path.push(tmp_vector);
+		}
   }
   
 	var curvedPath = [];
@@ -202,13 +242,76 @@ function redraw(x, y){
 			change += Math.abs(auxY - curvedPath[i].y);
 		}
 	}
+
+	// Assign curvedPath to path. Helpful when splitting into multiple functions later
+	path.length = 0;
+	for(let i = 0; i < curvedPath.length; i++) {
+		var tmp = new vector2();
+		tmp.x = curvedPath[i].x;
+		tmp.y = curvedPath[i].y;
+		
+		path.push(tmp);
+	}
+
+	// Curvature
+	for(let i = 1; i < path.length - 1; i++) {
+		path[i].x += 0.001;
+
+		var k1 = 0.5 * (Math.pow(path[i].x, 2) + Math.pow(path[i].y, 2) - Math.pow(path[i - 1].x, 2) - Math.pow(path[i - 1].y, 2)) / (path[i].x - path[i - 1].x);
+		var k2 = (path[i].y - path[i - 1].y) / (path[i].x - path[i - 1].x);
+		var b = 0.5 * (Math.pow(path[i - 1].x, 2) - 2 * path[i - 1].x  * k1 + Math.pow(path[i - 1].y, 2) - Math.pow(path[i + 1].x, 2) + 2 * path[i + 1].x * k1 - Math.pow(path[i + 1].y, 2)) / (path[i + 1].x * k2 - path[i + 1].y + path[i - 1].y - path[i - 1].x * k2);
+		var a = k1 - k2 * b;
+
+		var pointAB = new vector2;
+		pointAB.x = a;
+		pointAB.y = b;
+
+		var curvature = 1 / distanceTo(path[i], pointAB);
+
+		if(isNaN(curvature)) {
+			curvature = 0;
+		}
+
+		curvatures[i] = curvature;
+		console.log("Curvature: " + curvature + ", " + curvatures[i]);
+	}
+	curvatures[0] = 0.0;
+	curvatures[path.length - 1] = 0.0;
+
+	// Velocity
+	// Give a zero point at the end of the path
+	velocities[path.length - 1] = 0.0;
+
+	for(let i = (path.length - 2); i >= 0; i--) {
+		var velocityLimit = Math.min(maxVelocity, (k / curvatures[i]));
+		console.log(curvatures[i]);
+
+		var distance = distanceTo(path[i], path[i + 1]);
+		var accelerationLimit = Math.sqrt(Math.pow(velocities[i+1], 2) + (2 * maxAcceleration * distance));
+
+		velocities[i] = Math.min(velocityLimit, accelerationLimit);
+		console.log("Vel: " + velocities[i]);
+		console.log(velocityLimit);
+		console.log(distance);
+		console.log(accelerationLimit);
+	}
+}
+
+function redraw(x, y){
+  //draw starting picture
+  ctx.drawImage(fieldImg, 0, 0, fieldImg.width, fieldImg.height, 0, 0, canvas.width, canvas.height);
+
+  //draw axis
+  ctx.fillStyle = "white";
+  ctx.fillRect(canvas.width/2 - 1, 0, 3, canvas.height);
+  ctx.fillRect(0, canvas.height/2 - 1,  canvas.width, 3);
   
+	generatePath();
+
   //Path drawing
-  ctx.fillStyle = "blue";
+  //ctx.fillStyle = "blue";
   for(let i = 0; i < path.length; i++) {
-	ctx.beginPath();
-	ctx.arc(canvasW(curvedPath[i].x) + canvas.width/2, canvasH(curvedPath[i].y) + canvas.height/2, robotDim - 4, 0, 2 * Math.PI, false);
-	ctx.fill();
+		drawPoint(path[i], velocities[i]);
   }
   path.length = 0;
   //curvedPath.length = 0;
@@ -222,6 +325,7 @@ function redraw(x, y){
 	ctx.fill();
   }
 }
+
 
 var movingRobot = false;
 var moveIndex = 0;

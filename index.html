@@ -25,12 +25,23 @@
 <button onclick="output()">Output Data</button>
 <br> <br>
 Input Waypoints<br>
-<textarea name="Input" cols="40" rows="5"></textarea>
+<textarea name="Input" cols="40" rows="5"></textarea> <br>
+<pre>maxVel   maxAccel    k</pre>
+<textarea name="maxVel" cols="5" rows="1"></textarea>
+<textarea name="maxAccel" cols="5" rows="1"></textarea>
+<textarea name="k" cols="5" rows="1"></textarea> <br>
+<pre>lookahead rateLimit  reversed   useRateLimit</pre>
+<textarea name="lookahead" cols="5" rows="1"></textarea>
+<textarea name="rateLimit" cols="5" rows="1"></textarea>
+&emsp;&emsp;
+<input type="checkbox" name="reversed"> 
+&emsp;&emsp;&emsp;&emsp;
+<input type="checkbox" name="useRateLimit">
 <!--
 <p>List o' Instructioins (Right Click To Add Point, Ctrl+Z To Undo, Ctrl+Shift+Z To Redo Once):</p>
 <div id="listOInstructions">
--->
 </div>
+-->
 
 <script type="text/javascript">
 const canvas = document.getElementById("canvas");
@@ -49,10 +60,19 @@ const fieldImg = new Image();
   fieldImg.src = 'field2D.jpg';
   fieldImg.onload = function(){
     redraw();
+	loadDefaults();
   }
 
 const robotXYHTML = document.getElementById("robotXY");
 const moveDis = document.getElementById("moveDis");
+
+// Get all text fields
+var pointInput = document.querySelector('textarea[name="Input"]');
+var maxVelInput = document.querySelector('textarea[name="maxVel"]');
+var maxAccelInput = document.querySelector('textarea[name="maxAccel"]');
+var kInput = document.querySelector('textarea[name="k"]');
+var lookaheadInput = document.querySelector('textarea[name="lookahead"]');
+var rateLimitInput = document.querySelector('textarea[name="rateLimit"]');
 
 
 var wScale = 18.235;
@@ -76,7 +96,10 @@ var maxVelocity = 100;
 var maxAcceleration = 50;
 var k = 4.0;
 
-
+var lookahead = 5.0;
+var rateLimit = 50.0;
+var isReversed = false;
+var useRateLimter = true;
 
 
 
@@ -326,6 +349,15 @@ function redraw(x, y){
   }
 }
 
+function loadDefaults() {
+	maxVelInput.value = maxVelocity;
+	maxAccelInput.value = maxAcceleration;
+	kInput.value = k;
+
+	lookaheadInput.value = lookahead;
+	rateLimitInput.value = rateLimit;
+}
+
 
 var movingRobot = false;
 var moveIndex = 0;
@@ -396,10 +428,10 @@ canvas.addEventListener('contextmenu', function(e) {
    //var mY = e.y - rect.top - canvas.height/2;
 });
 
-var area = document.querySelector('textarea[name="Input"]');
-area.addEventListener("input", function() {
-	if(area != null) {
-		let inputData = area.value;
+
+pointInput.addEventListener("input", function() {
+	if(pointInput != null) {
+		let inputData = pointInput.value;
 		console.log(inputData);
 
 		var tmpWaypoints = [];
@@ -431,6 +463,35 @@ area.addEventListener("input", function() {
 			console.log(tmpWaypoints[i]);
 		for(let i = 0; i < waypoints.length; i++)
 			console.log(tmpWaypoints[i]);
+		redraw();
+	}
+}, false);
+
+
+maxVelInput.addEventListener("input", function() {
+	if (maxVelInput != null) {
+		maxVelocity = maxVelInput.value;
+		redraw();
+	}
+}, false);
+
+maxAccelInput.addEventListener("input", function() {
+	if (maxAccelInput != null) {
+		maxAcceleration = maxAccelInput.value;
+		redraw();
+	}
+}, false);
+
+kInput.addEventListener("input", function() {
+	if (kInput != null) {
+		k = kInput.value;
+		redraw();
+	}
+}, false);
+
+lookaheadInput.addEventListener("input", function() {
+	if (lookaheadInput != null) {
+		lookahead = lookaheadInput.value;
 		redraw();
 	}
 }, false);

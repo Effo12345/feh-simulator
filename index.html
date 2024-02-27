@@ -34,9 +34,9 @@ Input Waypoints<br>
 <textarea name="lookahead" cols="5" rows="1"></textarea>
 <textarea name="rateLimit" cols="5" rows="1"></textarea>
 &emsp;&emsp;
-<input type="checkbox" name="reversed"> 
+<input type="checkbox" name="reversed" id="reversed"> 
 &emsp;&emsp;&emsp;&emsp;
-<input type="checkbox" name="useRateLimit">
+<input type="checkbox" name="useRateLimit" id="rateLimit">
 <!--
 <p>List o' Instructioins (Right Click To Add Point, Ctrl+Z To Undo, Ctrl+Shift+Z To Redo Once):</p>
 <div id="listOInstructions">
@@ -71,8 +71,11 @@ var pointInput = document.querySelector('textarea[name="Input"]');
 var maxVelInput = document.querySelector('textarea[name="maxVel"]');
 var maxAccelInput = document.querySelector('textarea[name="maxAccel"]');
 var kInput = document.querySelector('textarea[name="k"]');
+
 var lookaheadInput = document.querySelector('textarea[name="lookahead"]');
 var rateLimitInput = document.querySelector('textarea[name="rateLimit"]');
+var reversedCheck = document.getElementById("reversed");
+var rateLimitCheck = document.getElementById("rateLimit");
 
 
 var wScale = 18.235;
@@ -356,6 +359,8 @@ function loadDefaults() {
 
 	lookaheadInput.value = lookahead;
 	rateLimitInput.value = rateLimit;
+	reversedCheck.checked = isReversed;
+	rateLimitCheck.checked = useRateLimter;
 }
 
 
@@ -492,8 +497,18 @@ kInput.addEventListener("input", function() {
 lookaheadInput.addEventListener("input", function() {
 	if (lookaheadInput != null) {
 		lookahead = lookaheadInput.value;
-		redraw();
+		//redraw();
 	}
+}, false);
+
+reversedCheck.addEventListener("click", function() {
+	isReversed = reversedCheck.checked;
+	console.log(isReversed);
+}, false);
+
+rateLimitCheck.addEventListener("click", function() {
+	useRateLimter = rateLimitCheck.checked;
+	console.log(useRateLimter);
 }, false);
 /*
 var toggleKeyRedo = false;

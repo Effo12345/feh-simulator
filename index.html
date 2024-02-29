@@ -23,9 +23,9 @@
 
 <button onclick="newWaypoint()">Create waypoint</button>
 <button onclick="output()">Output Data</button>
-<br> <br>
-Input Waypoints<br>
-<textarea name="Input" cols="40" rows="5"></textarea> <br>
+<br>
+<!--<input type="file" id="file-selector" accept=".path">-->
+<button onclick="getFile()">Upload</button>
 <pre>maxVel   maxAccel    k</pre>
 <textarea name="maxVel" cols="5" rows="1"></textarea>
 <textarea name="maxAccel" cols="5" rows="1"></textarea>
@@ -46,6 +46,13 @@ Input Waypoints<br>
 <script type="text/javascript">
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext('2d');
+
+// var fileContent = "My epic novel that I don't want to lose.";
+// var bb = new Blob([fileContent ], { type: 'text/plain' });
+// var a = document.createElement('a');
+// a.download = 'download.path';
+// a.href = window.URL.createObjectURL(bb);
+// a.click();
 
 
 
@@ -76,6 +83,9 @@ var lookaheadInput = document.querySelector('textarea[name="lookahead"]');
 var rateLimitInput = document.querySelector('textarea[name="rateLimit"]');
 var reversedCheck = document.getElementById("reversed");
 var rateLimitCheck = document.getElementById("rateLimit");
+const pathUpload = document.getElementById('file-selector');
+
+var userFile;
 
 
 var wScale = 18.235;
@@ -434,43 +444,43 @@ canvas.addEventListener('contextmenu', function(e) {
 });
 
 
-pointInput.addEventListener("input", function() {
-	if(pointInput != null) {
-		let inputData = pointInput.value;
-		console.log(inputData);
+// pointInput.addEventListener("input", function() {
+// 	if(pointInput != null) {
+// 		let inputData = pointInput.value;
+// 		console.log(inputData);
 
-		var tmpWaypoints = [];
-		var nextSearch = 0;
-		for(let i = 0; i < (inputData.match(/\n/g) || []).length + 1; i++) {
-			var tmp = new vector2();
+// 		var tmpWaypoints = [];
+// 		var nextSearch = 0;
+// 		for(let i = 0; i < (inputData.match(/\n/g) || []).length + 1; i++) {
+// 			var tmp = new vector2();
 
-			var tmpx = inputData.substring(
-				inputData.indexOf("{", nextSearch) + 1,
-				inputData.indexOf(",", nextSearch)
-			)
-			console.log(tmpx);
-			tmpx = canvasW(tmpx * 1);
-			var tmpy = inputData.substring(
-				inputData.indexOf(",", nextSearch) + 2,
-				inputData.indexOf("}", nextSearch)
-			)
-			console.log(tmpy);
-			tmpy = canvasH(tmpy * -1);
+// 			var tmpx = inputData.substring(
+// 				inputData.indexOf("{", nextSearch) + 1,
+// 				inputData.indexOf(",", nextSearch)
+// 			)
+// 			console.log(tmpx);
+// 			tmpx = canvasW(tmpx * 1);
+// 			var tmpy = inputData.substring(
+// 				inputData.indexOf(",", nextSearch) + 2,
+// 				inputData.indexOf("}", nextSearch)
+// 			)
+// 			console.log(tmpy);
+// 			tmpy = canvasH(tmpy * -1);
 
-			tmp.x = tmpx;
-			tmp.y = tmpy;
+// 			tmp.x = tmpx;
+// 			tmp.y = tmpy;
 
-			tmpWaypoints.push(tmp);
-			nextSearch = inputData.indexOf("\n", nextSearch + 1);
-		}
-		waypoints = tmpWaypoints;
-		for(let i = 0; i < tmpWaypoints.length; i++)
-			console.log(tmpWaypoints[i]);
-		for(let i = 0; i < waypoints.length; i++)
-			console.log(tmpWaypoints[i]);
-		redraw();
-	}
-}, false);
+// 			tmpWaypoints.push(tmp);
+// 			nextSearch = inputData.indexOf("\n", nextSearch + 1);
+// 		}
+// 		waypoints = tmpWaypoints;
+// 		for(let i = 0; i < tmpWaypoints.length; i++)
+// 			console.log(tmpWaypoints[i]);
+// 		for(let i = 0; i < waypoints.length; i++)
+// 			console.log(tmpWaypoints[i]);
+// 		redraw();
+// 	}
+// }, false);
 
 
 maxVelInput.addEventListener("input", function() {
@@ -510,6 +520,67 @@ rateLimitCheck.addEventListener("click", function() {
 	useRateLimter = rateLimitCheck.checked;
 	console.log(useRateLimter);
 }, false);
+
+// pathUpload.addEventListener('change', (event) => {
+// 	const fileList = event.target.files;
+//     console.log(fileList);
+// });
+
+
+const pickerOpts = {
+  types: [
+    {
+      description: "Paths",
+      accept: {
+        "txt/*": [".path"],
+      },
+    },
+  ],
+  excludeAcceptAllOption: true,
+  multiple: false,
+};
+
+function processPathFromFile(file) {
+	var lineByLine = file.split("\r\n");
+	console.log(lineByLine);
+
+	// Make sure path file is valid
+	if(lineByLine.length <= 7) {
+		console.log("Invalid path!");
+		return;
+	}
+
+	var configValues = [];
+	// Get the first 7 lines of config
+	for(let i = 0; i < 7; i++) {
+		configValues[i] = lineByLine[i].split(" ")[0];
+	}
+
+	// Set actual variables from imported values
+	maxVelocity = parseFloat(configValues[0]);
+	maxAcceleration = parseFloat(configValues[1]);
+	k = parseFloat(configValues[2]);
+	lookahead = parseFloat(configValues[3]);
+	rateLimit = parseFloat(configValues[4])
+	isReversed = !!parseInt(configValues[5]);
+	useRateLimter = !!parseInt(configValues[6]);
+
+	console.log(configValues[5] + " " + configValues[6]);
+
+	loadDefaults();
+}
+
+async function getFile() {
+	// Open file picker and destructure the result the first handle
+	const [fileHandle] = await window.showOpenFilePicker(pickerOpts);
+	userFile = fileHandle;
+
+	// get file contents
+	const fileData = await fileHandle.getFile();
+	const asText = await fileData.text();
+
+	processPathFromFile(asText);
+}
 /*
 var toggleKeyRedo = false;
 var toggleKey = false;

@@ -26,6 +26,8 @@
 <br>
 <!--<input type="file" id="file-selector" accept=".path">-->
 <button onclick="getFile()">Upload</button>
+<button onclick="saveExistingFile()">Save Current</button>
+<button onclick="saveNewFile()">Save New</button>
 <pre>maxVel   maxAccel    k</pre>
 <textarea name="maxVel" cols="5" rows="1"></textarea>
 <textarea name="maxAccel" cols="5" rows="1"></textarea>
@@ -86,6 +88,7 @@ var rateLimitCheck = document.getElementById("rateLimit");
 const pathUpload = document.getElementById('file-selector');
 
 var userFile;
+var fileSelected = false;
 
 
 var wScale = 18.235;
@@ -218,7 +221,6 @@ function drawPoint(p, vel) {
 	// Lerp between red (slow) to green (fast) based on percentage of max vel
 	var colorInterpolator = d3.interpolateRgb("red", "green");
 	var color = colorInterpolator(vel / 50);
-	console.log(color);
 
 	ctx.fillStyle = color;
 	ctx.beginPath();
@@ -227,6 +229,9 @@ function drawPoint(p, vel) {
 }
 
 function generatePath() {
+	// Clear path to start
+	path.length = 0;
+
 	//Path computing
 	for(let i = 0; i < waypoints.length - 1; i++) {
 		var vector = new vector2();
@@ -309,7 +314,6 @@ function generatePath() {
 		}
 
 		curvatures[i] = curvature;
-		console.log("Curvature: " + curvature + ", " + curvatures[i]);
 	}
 	curvatures[0] = 0.0;
 	curvatures[path.length - 1] = 0.0;
@@ -320,16 +324,11 @@ function generatePath() {
 
 	for(let i = (path.length - 2); i >= 0; i--) {
 		var velocityLimit = Math.min(maxVelocity, (k / curvatures[i]));
-		console.log(curvatures[i]);
 
 		var distance = distanceTo(path[i], path[i + 1]);
 		var accelerationLimit = Math.sqrt(Math.pow(velocities[i+1], 2) + (2 * maxAcceleration * distance));
 
 		velocities[i] = Math.min(velocityLimit, accelerationLimit);
-		console.log("Vel: " + velocities[i]);
-		console.log(velocityLimit);
-		console.log(distance);
-		console.log(accelerationLimit);
 	}
 }
 
@@ -349,7 +348,6 @@ function redraw(x, y){
   for(let i = 0; i < path.length; i++) {
 		drawPoint(path[i], velocities[i]);
   }
-  path.length = 0;
   //curvedPath.length = 0;
 
   //Waypoints
@@ -511,14 +509,18 @@ lookaheadInput.addEventListener("input", function() {
 	}
 }, false);
 
+rateLimitInput.addEventListener("input", function() {
+	if (rateLimitInput != null) {
+		rateLimit = rateLimitInput.value;
+	}
+}, false)
+
 reversedCheck.addEventListener("click", function() {
 	isReversed = reversedCheck.checked;
-	console.log(isReversed);
 }, false);
 
 rateLimitCheck.addEventListener("click", function() {
 	useRateLimter = rateLimitCheck.checked;
-	console.log(useRateLimter);
 }, false);
 
 // pathUpload.addEventListener('change', (event) => {
@@ -545,41 +547,134 @@ function processPathFromFile(file) {
 	console.log(lineByLine);
 
 	// Make sure path file is valid
-	if(lineByLine.length <= 7) {
+	if(lineByLine.length < 10) {
 		console.log("Invalid path!");
 		return;
 	}
 
 	var configValues = [];
-	// Get the first 7 lines of config
-	for(let i = 0; i < 7; i++) {
+	// Get the first 4 lines of config
+	for(let i = 0; i < 4; i++) {
 		configValues[i] = lineByLine[i].split(" ")[0];
 	}
 
-	// Set actual variables from imported values
-	maxVelocity = parseFloat(configValues[0]);
-	maxAcceleration = parseFloat(configValues[1]);
-	k = parseFloat(configValues[2]);
-	lookahead = parseFloat(configValues[3]);
-	rateLimit = parseFloat(configValues[4])
-	isReversed = !!parseInt(configValues[5]);
-	useRateLimter = !!parseInt(configValues[6]);
+	// Get path follower variables
+	lookahead = parseFloat(configValues[0]);
+	rateLimit = parseFloat(configValues[1]);
+	isReversed = !!parseInt(configValues[2]);
+	useRateLimter = !!parseInt(configValues[3]);
 
-	console.log(configValues[5] + " " + configValues[6]);
+	// Look for the ##### to find the end of the processed points
+	var foundSplit = false;
+	var splitIndex = 5;
+	while(!foundSplit) {
+		if(!lineByLine[splitIndex].localeCompare("#####")) {
+			foundSplit = true;
+		}
+		else {
+			splitIndex++;
+		}
+	}
+
+	console.log(splitIndex);
+
+	// Get the first 3 lines of config after the split
+	var plannerConfiValues = [];
+	for(let i = 0; i < 4; i++) {
+		plannerConfiValues[i] = lineByLine[i + splitIndex + 1].split(" ")[0];
+		console.log(parseFloat(plannerConfiValues[i]));
+	}
+
+	// Get path planner variables
+	maxVelocity = parseFloat(plannerConfiValues[0]);
+	maxAcceleration = parseFloat(plannerConfiValues[1]);
+	k = parseFloat(plannerConfiValues[2]);
 
 	loadDefaults();
+
+	// load in waypoints
+	waypoints = [];
+	for(let i = splitIndex + 4; i < lineByLine.length; i++) {
+		var pointDataArr = lineByLine[i].split(" ");
+
+		var tmp = new vector2();
+		tmp.x = canvasW(parseFloat(pointDataArr[0]));
+		tmp.y = -canvasH(parseFloat(pointDataArr[1]));
+
+		waypoints.push(tmp);
+	}
+
+	redraw();
 }
 
 async function getFile() {
 	// Open file picker and destructure the result the first handle
 	const [fileHandle] = await window.showOpenFilePicker(pickerOpts);
 	userFile = fileHandle;
+	fileSelected = true;
 
 	// get file contents
 	const fileData = await fileHandle.getFile();
 	const asText = await fileData.text();
 
 	processPathFromFile(asText);
+}
+
+function outputFile() {
+	var outStr = "";
+
+	outStr += (lookahead + " " + "# lookahead\r\n");
+	outStr += (rateLimit + " " +  "#  rateLimit\r\n");
+	outStr += ((isReversed ? 1 : 0) + " " +  "# reversed\r\n");
+	outStr += ((useRateLimter ? 1 : 0) + " " +  "# useRateLimit\r\n");
+
+	for(let i = 0; i < path.length; i++) {
+		outStr += fieldW(path[i].x) + " " + fieldH(path[i].y) + " " + velocities[i] + "\r\n";
+	}
+
+	outStr += "#####\r\n";
+
+	outStr += (maxVelocity + " " +  "# maxVel\r\n");
+	outStr += (maxAcceleration + " " +  "# maxAccel\r\n");
+	outStr += (k + " " +  "# k\r\n");
+
+	for(let i = 0; i < waypoints.length; i++) {
+		outStr += fieldW(waypoints[i].x) + " " + (-fieldH(waypoints[i].y)) + "\r\n";
+	}
+
+	return outStr;
+}
+
+async function saveFile(handle) {
+	// create a FileSystemWritableFileStream to write to
+	const writableStream = await handle.createWritable();
+
+	// write our file
+	await writableStream.write(outputFile());
+
+	// close the file and write the contents to disk.
+	await writableStream.close();
+}
+
+async function saveExistingFile() {
+	var handle;
+
+	if(fileSelected == true) {
+		handle = userFile;
+	}
+	else {
+		// create a new handle
+		handle = await window.showSaveFilePicker(pickerOpts);
+	}
+
+	saveFile(handle);
+}
+
+async function saveNewFile() {
+	// create a new handle
+	var handle = await window.showSaveFilePicker(pickerOpts);
+
+	saveFile(handle);
 }
 /*
 var toggleKeyRedo = false;

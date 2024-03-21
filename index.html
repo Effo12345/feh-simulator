@@ -621,12 +621,15 @@ function processPathFromFile(file) {
 
 	// load in waypoints
 	waypoints = [];
-	for(let i = splitIndex + 4; i < lineByLine.length; i++) {
+	// Stop at length - 1 since file ends in newline
+	// prevents instantiating a point at (NULL, NULL)
+	for(let i = splitIndex + 4; i < lineByLine.length - 1; i++) {
 		var pointDataArr = lineByLine[i].split(" ");
 
 		var tmp = new vector2();
 		tmp.x = canvasW(parseFloat(pointDataArr[0]));
 		tmp.y = -canvasH(parseFloat(pointDataArr[1]));
+		console.log(tmp.x + " " + tmp.y);
 
 		waypoints.push(tmp);
 	}

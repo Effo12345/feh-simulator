@@ -252,8 +252,9 @@ function drawPoint(p, vel) {
 }
 
 function generatePath() {
-	// Clear path to start
+	// Clear path and velocities to start
 	path.length = 0;
+	velocities.length = 0;
 
 	//Path computing
 	for(let i = 0; i < waypoints.length - 1; i++) {

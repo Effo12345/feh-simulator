@@ -134,14 +134,10 @@ var path = [];
 var velocities = []; // Indexed same as path
 var curvatures = [];
   
-function newWaypoint() {
-	ctx.beginPath();
-	ctx.arc(canvas.width/2, canvas.height/2, robotDim, 0, 2 * Math.PI, false);
-	ctx.fill();
-	
+function newWaypoint(x, y) {
 	var tmp = new vector2();
-	tmp.x = 0;
-	tmp.y = 0;
+	tmp.x = x;
+	tmp.y = y;
 	
 	waypoints.push(tmp);
 	redraw();
@@ -405,43 +401,58 @@ var moveIndex = 0;
 var distanceFromRobotX = 0;
 var distanceFromRobotY = 0;
 canvas.addEventListener('mousedown', function(e){
-    var lastClosestDistance = 1000;
-	var lastClosestIndex = 0;
-	var smallestX = 0;
-	var smallestY = 0;
-	
-	for(let i = 0; i < waypoints.length; i++) {
-		var rect = canvas.getBoundingClientRect();
-		//gets points based on middle of canvas being (0,0)
-		var mX = e.x - rect.left - canvas.width/2;
-		var mY = e.y - rect.top - canvas.height/2;
-		//console.log(mX + ", " + mY);
-		var scaledX = mX * (wScale/(canvas.width/2));
-		var scaledY = -1 * mY * (hScale/( canvas.height/2));
+	var isRightMB;
+    e = e || window.event;
 
-		distanceFromRobotX = (e.x - rect.left - canvas.width/2) - (waypoints[i].x - robotDim/2);
-		distanceFromRobotY = (e.y - rect.top - canvas.height/2) - (waypoints[i].y + robotDim/2);
+    if ("which" in e)  // Gecko (Firefox), WebKit (Safari/Chrome) & Opera
+        isRightMB = e.which == 3; 
+    else if ("button" in e)  // IE, Opera 
+        isRightMB = e.button == 2; 
+
 		
-		var distance = Math.sqrt(Math.pow(distanceFromRobotX, 2) + Math.pow(distanceFromRobotY, 2));
+	if(!isRightMB) {
+		var lastClosestDistance = 1000;
+		var lastClosestIndex = 0;
+		var smallestX = 0;
+		var smallestY = 0;
 		
-		//console.log(lastClosestIndex);
+		for(let i = 0; i < waypoints.length; i++) {
+			var rect = canvas.getBoundingClientRect();
+			//gets points based on middle of canvas being (0,0)
+			var mX = e.x - rect.left - canvas.width/2;
+			var mY = e.y - rect.top - canvas.height/2;
+			//console.log(mX + ", " + mY);
+			var scaledX = mX * (wScale/(canvas.width/2));
+			var scaledY = -1 * mY * (hScale/( canvas.height/2));
+
+			distanceFromRobotX = (e.x - rect.left - canvas.width/2) - (waypoints[i].x - robotDim/2);
+			distanceFromRobotY = (e.y - rect.top - canvas.height/2) - (waypoints[i].y + robotDim/2);
+			
+			var distance = Math.sqrt(Math.pow(distanceFromRobotX, 2) + Math.pow(distanceFromRobotY, 2));
+			
+			//console.log(lastClosestIndex);
+			
+			if(distance < lastClosestDistance) {
+				lastClosestDistance = distance;
+				lastClosestIndex = i;
+				smallestX = distanceFromRobotX;
+				smallestY = distanceFromRobotY;
+			}
+		}
 		
-		if(distance < lastClosestDistance) {
-			lastClosestDistance = distance;
-			lastClosestIndex = i;
-			smallestX = distanceFromRobotX;
-			smallestY = distanceFromRobotY;
+		distanceFromRobotX = smallestX;
+		distanceFromRoboty = smallestY;
+
+		if(Math.abs( smallestX ) < robotDim * 9/10 && Math.abs( smallestY ) < robotDim * 9/10 && !movingRobot){
+			movingRobot = true;
+			moveIndex = lastClosestIndex;
+			robotXYHTML.innerText = "Robot X = " + round(fieldW(waypoints[moveIndex].x)) + " Robot Y = " + -1 * round(fieldH(waypoints[moveIndex].y));
+			redraw();
 		}
 	}
-	
-	distanceFromRobotX = smallestX;
-	distanceFromRoboty = smallestY;
-
-  if(Math.abs( smallestX ) < robotDim * 9/10 && Math.abs( smallestY ) < robotDim * 9/10 && !movingRobot){
-    movingRobot = true;
-	moveIndex = lastClosestIndex;
-	robotXYHTML.innerText = "Robot X = " + round(fieldW(waypoints[moveIndex].x)) + " Robot Y = " + -1 * round(fieldH(waypoints[moveIndex].y));
-    redraw();
+	else {
+		newWaypoint(e.offsetX - canvas.width / 2, e.offsetY - canvas.height / 2);
+		console.log(e.offsetX + " " + e.offsetY);
 	}
 });
 
